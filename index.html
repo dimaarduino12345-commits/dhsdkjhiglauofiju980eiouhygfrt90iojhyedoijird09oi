@@ -17,23 +17,23 @@
       --green: #34c759;
       --red: #ff3b30;
     }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
+
+    html {
+      background-color: var(--bg);
+      -webkit-text-size-adjust: 100%;
     }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
-      min-height: 100dvh;
       padding: 16px;
-      padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
       transition: background-color 0.3s ease, color 0.3s ease;
-      overscroll-behavior: none;
-      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      min-height: 100vh;
+      min-height: var(--tg-viewport-stable-height, 100dvh);
     }
 
     /* Профиль */
@@ -185,6 +185,7 @@
       font-size: 14px; font-weight: 500;
       transition: transform 0.3s ease; z-index: 10000;
       max-width: 90%; text-align: center;
+      pointer-events: none;
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
     .toast.success { background: rgba(52, 199, 89, 0.95); }
@@ -273,7 +274,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    /* ========== Переменные состояния (объявляем ДО вызова функций) ========== */
+    /* ========== Переменные состояния ========== */
     let tgUser = null;
     let userId = null;
     let currentUser = null;
@@ -324,7 +325,7 @@
       return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
-    /* ========== Инициализация данных пользователя ========== */
+    /* ========== Работа с Telegram ========== */
     function getTgUser() {
       return window.Telegram?.WebApp?.initDataUnsafe?.user || null;
     }
@@ -342,7 +343,6 @@
           photoUrl: u.photo_url || ''
         };
       } else {
-        // Фоллбэк для разработки вне Telegram
         let devId = localStorage.getItem('dev_id');
         if (!devId) {
           devId = 'dev_' + Math.random().toString(36).slice(2, 8);
@@ -413,7 +413,6 @@
       const avatarWrapper = document.getElementById('avatarWrapper');
 
       const firebaseMe = allUsers[userId] || {};
-      // Приоритет: Telegram -> Firebase -> fallback
       const me = tgUser
         ? {
             firstName: currentUser.firstName || firebaseMe.firstName || '',
@@ -563,7 +562,7 @@
       topupPanel.classList.toggle('active');
       if (topupPanel.classList.contains('active')) transferPanel.classList.remove('active');
     });
-    
+
     btnTransfer.addEventListener('click', () => {
       transferPanel.classList.toggle('active');
       if (transferPanel.classList.contains('active')) topupPanel.classList.remove('active');
@@ -651,15 +650,16 @@
       if (!window.Telegram?.WebApp) {
         updateUserState();
         renderProfile();
-        showToast('Открыто вне Telegram. Данные не загружены.', 'error');
+        showToast('Открыто вне Telegram', 'error');
         return;
       }
 
       const tg = window.Telegram.WebApp;
-      
+
       try {
         tg.ready();
         tg.expand();
+
         if (typeof tg.disableVerticalSwipes === "function") {
           try { tg.disableVerticalSwipes(); } catch (e) {}
         }
@@ -667,27 +667,24 @@
           try { tg.requestFullscreen(); } catch (e) {}
         }
 
-        // Ждем, пока Telegram передаст данные пользователя
-        const user = await waitForTgUser();
-        if (!user) {
-          showToast('Данные Telegram не получены. Попробуйте переоткрыть.', 'error');
-          // Все равно делаем фоллбэк, чтобы приложение не висело
+        // Настраиваем тему
+        if (tg.themeParams) {
+          document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+          document.body.style.color = tg.themeParams.text_color || '#000000';
         }
 
+        // Ждём данные пользователя
+        await waitForTgUser();
         updateUserState();
         renderProfile();
 
-        // Подхватываем обновления (если Telegram прислал данные позже)
-        if (tg.onEvent) {
-          tg.onEvent('themeChanged', () => {
-            updateUserState();
-            renderProfile();
-          });
-          tg.onEvent('viewportChanged', () => {
-            updateUserState();
-            renderProfile();
-          });
-        }
+        // Обновляем данные при возврате в приложение
+        tg.onEvent('themeChanged', () => {
+          if (tg.themeParams) {
+            document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+            document.body.style.color = tg.themeParams.text_color || '#000000';
+          }
+        });
 
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
@@ -695,12 +692,6 @@
             scheduleSync(true);
           }
         });
-
-        // Настройка темы
-        if (tg.themeParams) {
-          document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
-          document.body.style.color = tg.themeParams.text_color || '#000000';
-        }
 
         // Firebase
         await cleanupLegacyDemos();
@@ -711,7 +702,7 @@
 
       } catch (err) {
         console.error('Init error:', err);
-        showToast('Ошибка инициализации: ' + err.message, 'error');
+        showToast('Ошибка инициализации', 'error');
       }
     })();
   </script>
