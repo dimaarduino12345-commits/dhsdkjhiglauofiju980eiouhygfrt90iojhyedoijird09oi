@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>TONE Wallet — Telegram Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -17,13 +17,26 @@
       --green: #34c759;
       --red: #ff3b30;
     }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg); color: var(--text); min-height: 100vh;
-      padding: 16px; padding-bottom: 32px;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 16px;
+      padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
       transition: background-color 0.3s ease, color 0.3s ease;
+      overscroll-behavior: none;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
+    /* Профиль */
     .profile-card {
       display: flex; align-items: center; gap: 14px;
       padding: 14px; background: var(--secondary-bg);
@@ -40,6 +53,7 @@
     .full-name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .username { font-size: 13px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* Баланс */
     .balance-card {
       display: flex; align-items: center; gap: 14px;
       padding: 18px; background: var(--secondary-bg);
@@ -54,6 +68,7 @@
     .balance-amount { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; }
     .balance-label { font-size: 12px; color: var(--hint); font-weight: 500; margin-top: 4px; letter-spacing: 1px; }
 
+    /* Кнопки */
     .actions-row { display: flex; gap: 10px; margin-bottom: 18px; }
     .btn {
       flex: 1; border: none; border-radius: 12px;
@@ -71,6 +86,7 @@
     }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Панели */
     .panel {
       background: var(--secondary-bg); border-radius: 16px;
       padding: 16px; margin-bottom: 16px; display: none;
@@ -101,6 +117,7 @@
     .field-label { font-size: 12px; color: var(--hint); margin-bottom: 6px; font-weight: 500; }
     .panel .btn { width: 100%; margin-top: 4px; }
 
+    /* Поиск и список контактов */
     .search-input {
       width: 100%; padding: 10px 14px; border-radius: 10px;
       border: 1px solid transparent; background: var(--bg);
@@ -134,6 +151,7 @@
     .contact-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .contact-username { font-size: 12px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* История операций */
     .operations-title {
       font-size: 14px; font-weight: 600; color: var(--hint);
       margin: 8px 0 10px; text-transform: uppercase; letter-spacing: 0.5px;
@@ -158,8 +176,10 @@
     .op-amount.out { color: var(--red); }
     .empty-state { text-align: center; padding: 24px; color: var(--hint); font-size: 14px; line-height: 1.5; }
 
+    /* Уведомления */
     .toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120%);
+      position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%) translateY(120%);
       background: rgba(0, 0, 0, 0.85); color: #fff;
       padding: 12px 20px; border-radius: 12px;
       font-size: 14px; font-weight: 500;
@@ -240,7 +260,7 @@
       getDatabase, ref, onValue, get, update, push, runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    /* ========== Firebase ========== */
+    /* ========== Конфигурация Firebase ========== */
     const firebaseConfig = {
       apiKey: "AIzaSyAwmjZwlgXmhqeFtiwDDN3Qv2C53MStWkw",
       authDomain: "tonewallet-dd99b.firebaseapp.com",
@@ -253,32 +273,26 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    /* ========== Telegram ========== */
-    const tg = window.Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
-    const tgUser = tg?.initDataUnsafe?.user;
+    /* ========== Переменные состояния (объявляем ДО вызова функций) ========== */
+    let tgUser = null;
+    let userId = null;
+    let currentUser = null;
+    let allUsers = {};
+    let selectedRecipientId = null;
+    let searchQuery = '';
 
-    let userId, currentUser;
-    if (tgUser) {
-      userId = String(tgUser.id);
-      currentUser = {
-        id: userId,
-        firstName: tgUser.first_name || '',
-        lastName: tgUser.last_name || '',
-        username: tgUser.username || '',
-        photoUrl: tgUser.photo_url || ''
-      };
-    } else {
-      let devId = localStorage.getItem('dev_id');
-      if (!devId) {
-        devId = 'dev_' + Math.random().toString(36).slice(2, 8);
-        localStorage.setItem('dev_id', devId);
-      }
-      userId = devId;
-      currentUser = { id: userId, firstName: 'Dev', lastName: 'User', username: 'dev', photoUrl: '' };
-    }
+    /* ========== DOM Элементы ========== */
+    const balanceAmountEl = document.getElementById('balanceAmount');
+    const contactListEl = document.getElementById('contactList');
+    const opListEl = document.getElementById('opList');
+    const userCountEl = document.getElementById('userCount');
+    const searchInput = document.getElementById('searchInput');
+    const btnTopup = document.getElementById('btnTopup');
+    const btnTransfer = document.getElementById('btnTransfer');
+    const topupPanel = document.getElementById('topupPanel');
+    const transferPanel = document.getElementById('transferPanel');
 
-    /* ========== Утилиты ========== */
+    /* ========== Вспомогательные функции ========== */
     function showToast(msg, type = 'info') {
       const el = document.getElementById('toast');
       el.textContent = msg;
@@ -286,9 +300,11 @@
       clearTimeout(el._t);
       el._t = setTimeout(() => el.classList.remove('show'), 2500);
     }
+
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
     function displayName(u) {
       if (!u) return '';
       const name = `${u.firstName || ''} ${u.lastName || ''}`.trim();
@@ -296,19 +312,61 @@
       if (u.username) return '@' + u.username;
       return u.id || 'Пользователь';
     }
+
     function initialsOf(u) {
       const fn = (u?.firstName || '')[0] || '';
       const ln = (u?.lastName || '')[0] || '';
       return (fn + ln).toUpperCase() || (u?.username?.[0] || '?').toUpperCase();
     }
+
     function nowStr(ts) {
       const d = new Date(ts);
       return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
-    /* ========== Синхронизация с Telegram ========== */
+    /* ========== Инициализация данных пользователя ========== */
+    function getTgUser() {
+      return window.Telegram?.WebApp?.initDataUnsafe?.user || null;
+    }
+
+    function updateUserState() {
+      const u = getTgUser();
+      if (u) {
+        tgUser = u;
+        userId = String(u.id);
+        currentUser = {
+          id: userId,
+          firstName: u.first_name || '',
+          lastName: u.last_name || '',
+          username: u.username || '',
+          photoUrl: u.photo_url || ''
+        };
+      } else {
+        // Фоллбэк для разработки вне Telegram
+        let devId = localStorage.getItem('dev_id');
+        if (!devId) {
+          devId = 'dev_' + Math.random().toString(36).slice(2, 8);
+          localStorage.setItem('dev_id', devId);
+        }
+        userId = devId;
+        currentUser = { id: userId, firstName: 'Dev', lastName: 'User', username: 'dev', photoUrl: '' };
+        tgUser = null;
+      }
+    }
+
+    async function waitForTgUser(timeoutMs = 3000) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const u = getTgUser();
+        if (u && u.id) return u;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return null;
+    }
+
+    /* ========== Синхронизация с Firebase ========== */
     async function syncTelegramProfile() {
-      if (!tgUser) return;
+      if (!tgUser || !userId) return;
       const userRef = ref(db, `users/${userId}`);
       const snap = await get(userRef);
       const fresh = {
@@ -328,19 +386,11 @@
     let lastSync = 0;
     function scheduleSync(force = false) {
       const now = Date.now();
-      if (!force && now - lastSync < 30_000) return;
+      if (!force && now - lastSync < 30000) return;
       lastSync = now;
       syncTelegramProfile().catch(err => console.warn('sync failed', err));
     }
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') scheduleSync(true);
-    });
-    if (tg?.onEvent) {
-      tg.onEvent('viewportChanged', () => scheduleSync());
-      tg.onEvent('themeChanged', () => scheduleSync());
-    }
 
-    /* ========== Очистка legacy демо ========== */
     async function cleanupLegacyDemos() {
       const snap = await get(ref(db, 'users'));
       const users = snap.val() || {};
@@ -356,13 +406,14 @@
       if (Object.keys(updates).length) await update(ref(db), updates);
     }
 
-    /* ========== Профиль ========== */
+    /* ========== Отрисовка ========== */
     function renderProfile() {
       const fullNameEl = document.getElementById('fullName');
       const usernameEl = document.getElementById('username');
       const avatarWrapper = document.getElementById('avatarWrapper');
 
       const firebaseMe = allUsers[userId] || {};
+      // Приоритет: Telegram -> Firebase -> fallback
       const me = tgUser
         ? {
             firstName: currentUser.firstName || firebaseMe.firstName || '',
@@ -391,20 +442,6 @@
         avatarWrapper.innerHTML = `<span class="avatar-initials">${escapeHtml(initialsOf(me))}</span>`;
       }
     }
-    renderProfile();
-
-    /* ========== Состояние ========== */
-    let allUsers = {};
-    let selectedRecipientId = null;
-    let searchQuery = '';
-
-    const balanceAmountEl = document.getElementById('balanceAmount');
-    const contactListEl = document.getElementById('contactList');
-    const opListEl = document.getElementById('opList');
-    const userCountEl = document.getElementById('userCount');
-    const searchInput = document.getElementById('searchInput');
-    const btnTopup = document.getElementById('btnTopup');
-    const btnTransfer = document.getElementById('btnTransfer');
 
     function renderBalance() {
       const me = allUsers[userId];
@@ -412,7 +449,6 @@
       balanceAmountEl.textContent = bal.toLocaleString('ru-RU');
     }
 
-    /* ========== Реальный список пользователей ========== */
     function getRealUsers() {
       return Object.entries(allUsers)
         .filter(([id, u]) => id !== userId && u && u.createdAt)
@@ -487,7 +523,7 @@
       }).join('');
     }
 
-    /* ========== Слушатели ========== */
+    /* ========== Слушатели базы данных ========== */
     function listenUsers() {
       onValue(ref(db, 'users'), (snap) => {
         allUsers = snap.val() || {};
@@ -509,13 +545,12 @@
       });
     }
 
-    /* ========== Поиск ========== */
+    /* ========== Обработчики интерфейса ========== */
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value;
       renderContactList();
     });
 
-    /* ========== Выбор получателя ========== */
     contactListEl.addEventListener('click', (e) => {
       const item = e.target.closest('.contact-item');
       if (!item) return;
@@ -524,20 +559,16 @@
       item.classList.add('selected');
     });
 
-    /* ========== Панели ========== */
-    const topupPanel = document.getElementById('topupPanel');
-    const transferPanel = document.getElementById('transferPanel');
-
     btnTopup.addEventListener('click', () => {
       topupPanel.classList.toggle('active');
       if (topupPanel.classList.contains('active')) transferPanel.classList.remove('active');
     });
+    
     btnTransfer.addEventListener('click', () => {
       transferPanel.classList.toggle('active');
       if (transferPanel.classList.contains('active')) topupPanel.classList.remove('active');
     });
 
-    /* ========== Пополнение ========== */
     document.getElementById('btnTopupConfirm').addEventListener('click', async (e) => {
       const input = document.getElementById('topupInput');
       const amount = Math.floor(Number(input.value));
@@ -561,7 +592,6 @@
       }
     });
 
-    /* ========== Перевод ========== */
     document.getElementById('btnTransferConfirm').addEventListener('click', async (e) => {
       const input = document.getElementById('transferInput');
       const amount = Math.floor(Number(input.value));
@@ -616,23 +646,72 @@
       }
     });
 
-    /* ========== Тема ========== */
-    if (tg) {
-      document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
-      document.body.style.color = tg.themeParams.text_color || '#000000';
-    }
-
-    /* ========== Старт ========== */
+    /* ========== Старт приложения ========== */
     (async function init() {
+      if (!window.Telegram?.WebApp) {
+        updateUserState();
+        renderProfile();
+        showToast('Открыто вне Telegram. Данные не загружены.', 'error');
+        return;
+      }
+
+      const tg = window.Telegram.WebApp;
+      
       try {
+        tg.ready();
+        tg.expand();
+        if (typeof tg.disableVerticalSwipes === "function") {
+          try { tg.disableVerticalSwipes(); } catch (e) {}
+        }
+        if (typeof tg.requestFullscreen === "function") {
+          try { tg.requestFullscreen(); } catch (e) {}
+        }
+
+        // Ждем, пока Telegram передаст данные пользователя
+        const user = await waitForTgUser();
+        if (!user) {
+          showToast('Данные Telegram не получены. Попробуйте переоткрыть.', 'error');
+          // Все равно делаем фоллбэк, чтобы приложение не висело
+        }
+
+        updateUserState();
+        renderProfile();
+
+        // Подхватываем обновления (если Telegram прислал данные позже)
+        if (tg.onEvent) {
+          tg.onEvent('themeChanged', () => {
+            updateUserState();
+            renderProfile();
+          });
+          tg.onEvent('viewportChanged', () => {
+            updateUserState();
+            renderProfile();
+          });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            updateUserState();
+            scheduleSync(true);
+          }
+        });
+
+        // Настройка темы
+        if (tg.themeParams) {
+          document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+          document.body.style.color = tg.themeParams.text_color || '#000000';
+        }
+
+        // Firebase
         await cleanupLegacyDemos();
         await syncTelegramProfile();
         lastSync = Date.now();
         listenUsers();
         listenTransactions();
+
       } catch (err) {
-        console.error(err);
-        showToast('Не удалось подключиться к базе', 'error');
+        console.error('Init error:', err);
+        showToast('Ошибка инициализации: ' + err.message, 'error');
       }
     })();
   </script>
