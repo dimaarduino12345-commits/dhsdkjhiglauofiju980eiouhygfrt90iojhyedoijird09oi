@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TONE Wallet — Telegram Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --text: var(--tg-theme-text-color, #000000);
+      --hint: var(--tg-theme-hint-color, #8e8e93);
+      --secondary-bg: var(--tg-theme-secondary-bg-color, #f2f2f7);
+      --button: var(--tg-theme-button-color, #3390ec);
+      --accent: #33b8ec;
+      --green: #34c759;
+      --red: #ff3b30;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      padding: 16px; padding-bottom: 32px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .profile-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px; background: var(--secondary-bg);
+      border-radius: 16px; margin-bottom: 16px;
+    }
+    .avatar-wrapper {
+      width: 56px; height: 56px; border-radius: 50%;
+      overflow: hidden; background: var(--button);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .avatar-wrapper img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .avatar-initials { color: #fff; font-size: 22px; font-weight: 600; }
+    .user-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .full-name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .username { font-size: 13px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .balance-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 18px; background: var(--secondary-bg);
+      border-radius: 16px; margin-bottom: 16px;
+    }
+    .tone-img {
+      width: 52px; height: 52px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(51, 184, 236, 0.3);
+    }
+    .balance-info { display: flex; flex-direction: column; }
+    .balance-amount { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; }
+    .balance-label { font-size: 12px; color: var(--hint); font-weight: 500; margin-top: 4px; letter-spacing: 1px; }
+
+    .actions-row { display: flex; gap: 10px; margin-bottom: 18px; }
+    .btn {
+      flex: 1; border: none; border-radius: 12px;
+      padding: 14px 16px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s; font-family: inherit;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 4px 14px rgba(51, 184, 236, 0.35);
+    }
+    .btn-secondary {
+      background: var(--secondary-bg); color: var(--text);
+      border: 1.5px solid rgba(51, 184, 236, 0.4);
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .panel {
+      background: var(--secondary-bg); border-radius: 16px;
+      padding: 16px; margin-bottom: 16px; display: none;
+    }
+    .panel.active { display: block; animation: slideDown 0.25s ease; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+    .panel-title {
+      font-size: 14px; font-weight: 600; color: var(--hint);
+      margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .panel-title .count {
+      background: rgba(51, 184, 236, 0.15); color: var(--accent);
+      font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 8px;
+    }
+    .input-row {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg); border-radius: 12px; padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .input-row .tone-img { width: 40px; height: 40px; box-shadow: none; }
+    .input-row input {
+      flex: 1; border: none; outline: none; background: transparent;
+      font-size: 22px; font-weight: 700; color: var(--text);
+      font-family: inherit; min-width: 0;
+    }
+    .input-row input::placeholder { color: var(--hint); font-weight: 400; }
+    .field-label { font-size: 12px; color: var(--hint); margin-bottom: 6px; font-weight: 500; }
+    .panel .btn { width: 100%; margin-top: 4px; }
+
+    .search-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1px solid transparent; background: var(--bg);
+      color: var(--text); font-size: 14px; font-family: inherit;
+      outline: none; margin-bottom: 10px;
+    }
+    .search-input:focus { border-color: var(--accent); }
+
+    .contact-list {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 12px; max-height: 280px; overflow-y: auto;
+    }
+    .contact-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; background: var(--bg);
+      border-radius: 12px; cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .contact-item:active { background: var(--secondary-bg); }
+    .contact-item.selected { border-color: var(--accent); background: rgba(51, 184, 236, 0.08); }
+    .contact-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--button); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .contact-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .contact-info { min-width: 0; flex: 1; }
+    .contact-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .contact-username { font-size: 12px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .operations-title {
+      font-size: 14px; font-weight: 600; color: var(--hint);
+      margin: 8px 0 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .op-list { display: flex; flex-direction: column; gap: 8px; }
+    .op-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--secondary-bg); border-radius: 12px;
+    }
+    .op-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; flex-shrink: 0;
+    }
+    .op-icon.in { background: rgba(52, 199, 89, 0.15); color: var(--green); }
+    .op-icon.out { background: rgba(255, 59, 48, 0.15); color: var(--red); }
+    .op-info { flex: 1; min-width: 0; }
+    .op-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .op-time { font-size: 12px; color: var(--hint); margin-top: 2px; }
+    .op-amount { font-size: 15px; font-weight: 700; white-space: nowrap; }
+    .op-amount.in { color: var(--green); }
+    .op-amount.out { color: var(--red); }
+    .empty-state { text-align: center; padding: 24px; color: var(--hint); font-size: 14px; line-height: 1.5; }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120%);
+      background: rgba(0, 0, 0, 0.85); color: #fff;
+      padding: 12px 20px; border-radius: 12px;
+      font-size: 14px; font-weight: 500;
+      transition: transform 0.3s ease; z-index: 10000;
+      max-width: 90%; text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: rgba(52, 199, 89, 0.95); }
+    .toast.error { background: rgba(255, 59, 48, 0.95); }
+  </style>
+</head>
+<body>
+
+  <div class="profile-card">
+    <div class="avatar-wrapper" id="avatarWrapper">
+      <span class="avatar-initials" id="avatarInitials">?</span>
+    </div>
+    <div class="user-info">
+      <div class="full-name" id="fullName">Загрузка...</div>
+      <div class="username" id="username"></div>
+    </div>
+  </div>
+
+  <div class="balance-card">
+    <img class="tone-img" src="https://fs.oblakoteka.ru/d.fotovssylku.ru/2026/10/27/image42474d89238e13c03.png" alt="TONE" />
+    <div class="balance-info">
+      <div class="balance-amount" id="balanceAmount">...</div>
+      <div class="balance-label">TONE</div>
+    </div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn btn-primary" id="btnTopup" disabled>Пополнить</button>
+    <button class="btn btn-secondary" id="btnTransfer" disabled>Перевести TONE</button>
+  </div>
+
+  <div class="panel" id="topupPanel">
+    <div class="panel-title">Пополнение баланса</div>
+    <div class="input-row">
+      <img class="tone-img" src="https://fs.oblakoteka.ru/d.fotovssylku.ru/2026/10/27/image42474d89238e13c03.png" alt="TONE" />
+      <input type="number" inputmode="numeric" id="topupInput" placeholder="0" min="1" step="1" />
+    </div>
+    <button class="btn btn-primary" id="btnTopupConfirm">Пополнить</button>
+  </div>
+
+  <div class="panel" id="transferPanel">
+    <div class="panel-title">
+      <span>Перевод TONE</span>
+      <span class="count" id="userCount">0</span>
+    </div>
+
+    <input type="text" class="search-input" id="searchInput" placeholder="Поиск по имени или @username" />
+
+    <div class="field-label">Выберите получателя</div>
+    <div class="contact-list" id="contactList">
+      <div class="empty-state">Загрузка пользователей...</div>
+    </div>
+
+    <div class="field-label">Сумма</div>
+    <div class="input-row">
+      <img class="tone-img" src="https://fs.oblakoteka.ru/d.fotovssylku.ru/2026/10/27/image42474d89238e13c03.png" alt="TONE" />
+      <input type="number" inputmode="numeric" id="transferInput" placeholder="0" min="1" step="1" />
+    </div>
+
+    <button class="btn btn-primary" id="btnTransferConfirm">Отправить TONE</button>
+  </div>
+
+  <div class="operations-title">Операции с TONE</div>
+  <div class="op-list" id="opList">
+    <div class="empty-state">Пока нет операций</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getDatabase, ref, onValue, get, update, push, runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    /* ========== Firebase ========== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyAwmjZwlgXmhqeFtiwDDN3Qv2C53MStWkw",
+      authDomain: "tonewallet-dd99b.firebaseapp.com",
+      databaseURL: "https://tonewallet-dd99b-default-rtdb.firebaseio.com",
+      projectId: "tonewallet-dd99b",
+      storageBucket: "tonewallet-dd99b.firebasestorage.app",
+      messagingSenderId: "559491672168",
+      appId: "1:559491672168:web:b489dc7d275ca4774933dd"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    /* ========== Telegram ========== */
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+    const tgUser = tg?.initDataUnsafe?.user;
+
+    let userId, currentUser;
+    if (tgUser) {
+      userId = String(tgUser.id);
+      currentUser = {
+        id: userId,
+        firstName: tgUser.first_name || '',
+        lastName: tgUser.last_name || '',
+        username: tgUser.username || '',
+        photoUrl: tgUser.photo_url || ''
+      };
+    } else {
+      let devId = localStorage.getItem('dev_id');
+      if (!devId) {
+        devId = 'dev_' + Math.random().toString(36).slice(2, 8);
+        localStorage.setItem('dev_id', devId);
+      }
+      userId = devId;
+      currentUser = { id: userId, firstName: 'Dev', lastName: 'User', username: 'dev', photoUrl: '' };
+    }
+
+    /* ========== Утилиты ========== */
+    function showToast(msg, type = 'info') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), 2500);
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function displayName(u) {
+      if (!u) return '';
+      const name = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+      if (name) return name;
+      if (u.username) return '@' + u.username;
+      return u.id || 'Пользователь';
+    }
+    function initialsOf(u) {
+      const fn = (u?.firstName || '')[0] || '';
+      const ln = (u?.lastName || '')[0] || '';
+      return (fn + ln).toUpperCase() || (u?.username?.[0] || '?').toUpperCase();
+    }
+    function nowStr(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    /* ========== Синхронизация с Telegram ========== */
+    async function syncTelegramProfile() {
+      if (!tgUser) return;
+      const userRef = ref(db, `users/${userId}`);
+      const snap = await get(userRef);
+      const fresh = {
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        username: currentUser.username,
+        photoUrl: currentUser.photoUrl,
+        updatedAt: Date.now()
+      };
+      if (!snap.exists()) {
+        fresh.balance = 0;
+        fresh.createdAt = Date.now();
+      }
+      await update(userRef, fresh);
+    }
+
+    let lastSync = 0;
+    function scheduleSync(force = false) {
+      const now = Date.now();
+      if (!force && now - lastSync < 30_000) return;
+      lastSync = now;
+      syncTelegramProfile().catch(err => console.warn('sync failed', err));
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') scheduleSync(true);
+    });
+    if (tg?.onEvent) {
+      tg.onEvent('viewportChanged', () => scheduleSync());
+      tg.onEvent('themeChanged', () => scheduleSync());
+    }
+
+    /* ========== Очистка legacy демо ========== */
+    async function cleanupLegacyDemos() {
+      const snap = await get(ref(db, 'users'));
+      const users = snap.val() || {};
+      const updates = {};
+      for (const id of Object.keys(users)) {
+        if (id.startsWith('demo_')) {
+          updates[`users/${id}`] = null;
+          updates[`transactions/${id}`] = null;
+        }
+      }
+      const metaSnap = await get(ref(db, 'meta/seeded'));
+      if (metaSnap.exists()) updates['meta/seeded'] = null;
+      if (Object.keys(updates).length) await update(ref(db), updates);
+    }
+
+    /* ========== Профиль ========== */
+    function renderProfile() {
+      const fullNameEl = document.getElementById('fullName');
+      const usernameEl = document.getElementById('username');
+      const avatarWrapper = document.getElementById('avatarWrapper');
+
+      const firebaseMe = allUsers[userId] || {};
+      const me = tgUser
+        ? {
+            firstName: currentUser.firstName || firebaseMe.firstName || '',
+            lastName: currentUser.lastName || firebaseMe.lastName || '',
+            username: currentUser.username || firebaseMe.username || '',
+            photoUrl: currentUser.photoUrl || firebaseMe.photoUrl || ''
+          }
+        : { ...firebaseMe, ...currentUser };
+
+      const fullName = `${me.firstName || ''} ${me.lastName || ''}`.trim() || 'Пользователь';
+      fullNameEl.textContent = fullName;
+      usernameEl.textContent = me.username ? '@' + me.username : '';
+
+      if (me.photoUrl) {
+        const existing = avatarWrapper.querySelector('img');
+        if (existing && existing.dataset.src === me.photoUrl) return;
+        const img = new Image();
+        img.dataset.src = me.photoUrl;
+        img.alt = 'Аватар';
+        img.onload = () => { avatarWrapper.innerHTML = ''; avatarWrapper.appendChild(img); };
+        img.onerror = () => {
+          avatarWrapper.innerHTML = `<span class="avatar-initials">${escapeHtml(initialsOf(me))}</span>`;
+        };
+        img.src = me.photoUrl;
+      } else {
+        avatarWrapper.innerHTML = `<span class="avatar-initials">${escapeHtml(initialsOf(me))}</span>`;
+      }
+    }
+    renderProfile();
+
+    /* ========== Состояние ========== */
+    let allUsers = {};
+    let selectedRecipientId = null;
+    let searchQuery = '';
+
+    const balanceAmountEl = document.getElementById('balanceAmount');
+    const contactListEl = document.getElementById('contactList');
+    const opListEl = document.getElementById('opList');
+    const userCountEl = document.getElementById('userCount');
+    const searchInput = document.getElementById('searchInput');
+    const btnTopup = document.getElementById('btnTopup');
+    const btnTransfer = document.getElementById('btnTransfer');
+
+    function renderBalance() {
+      const me = allUsers[userId];
+      const bal = typeof me?.balance === 'number' ? me.balance : 0;
+      balanceAmountEl.textContent = bal.toLocaleString('ru-RU');
+    }
+
+    /* ========== Реальный список пользователей ========== */
+    function getRealUsers() {
+      return Object.entries(allUsers)
+        .filter(([id, u]) => id !== userId && u && u.createdAt)
+        .filter(([id]) => !id.startsWith('demo_'))
+        .map(([id, u]) => ({ id, ...u }));
+    }
+
+    function renderContactList() {
+      const all = getRealUsers();
+      userCountEl.textContent = String(all.length);
+
+      if (!all.length) {
+        contactListEl.innerHTML = `
+          <div class="empty-state">
+            Пока никто не пользовался приложением, кроме вас.<br>
+            Поделитесь Mini App с друзьями — они появятся здесь после первого входа.
+          </div>`;
+        return;
+      }
+
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = q
+        ? all.filter(u => {
+            const name = displayName(u).toLowerCase();
+            const un = (u.username || '').toLowerCase();
+            const id = u.id.toLowerCase();
+            return name.includes(q) || un.includes(q) || id.includes(q);
+          })
+        : all;
+
+      filtered.sort((a, b) => displayName(a).localeCompare(displayName(b)));
+
+      if (!filtered.length) {
+        contactListEl.innerHTML = `<div class="empty-state">Никого не найдено по запросу «${escapeHtml(searchQuery)}»</div>`;
+        return;
+      }
+
+      contactListEl.innerHTML = filtered.map(u => {
+        const selected = selectedRecipientId === u.id ? ' selected' : '';
+        const avatarContent = u.photoUrl
+          ? `<img src="${escapeHtml(u.photoUrl)}" alt="" onerror="this.style.display='none';this.parentNode.textContent='${escapeHtml(initialsOf(u))}'">`
+          : escapeHtml(initialsOf(u));
+        return `
+          <div class="contact-item${selected}" data-id="${escapeHtml(u.id)}">
+            <div class="contact-avatar">${avatarContent}</div>
+            <div class="contact-info">
+              <div class="contact-name">${escapeHtml(displayName(u))}</div>
+              ${u.username ? `<div class="contact-username">@${escapeHtml(u.username)}</div>` : `<div class="contact-username">ID ${escapeHtml(u.id)}</div>`}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderOperations(list) {
+      if (!list || !list.length) {
+        opListEl.innerHTML = '<div class="empty-state">Пока нет операций</div>';
+        return;
+      }
+      opListEl.innerHTML = list.slice(0, 50).map(tx => {
+        const isIn = tx.type === 'in';
+        const cls = isIn ? 'in' : 'out';
+        const sign = isIn ? '+' : '-';
+        return `
+          <div class="op-item">
+            <div class="op-icon ${cls}">${sign}</div>
+            <div class="op-info">
+              <div class="op-title">${escapeHtml(tx.title || (isIn ? 'Пополнение' : 'Перевод'))}</div>
+              <div class="op-time">${nowStr(tx.ts || Date.now())}</div>
+            </div>
+            <div class="op-amount ${cls}">${sign}${(tx.amount || 0).toLocaleString('ru-RU')}</div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ========== Слушатели ========== */
+    function listenUsers() {
+      onValue(ref(db, 'users'), (snap) => {
+        allUsers = snap.val() || {};
+        renderProfile();
+        renderBalance();
+        renderContactList();
+        btnTopup.disabled = false;
+        btnTransfer.disabled = false;
+      });
+    }
+
+    function listenTransactions() {
+      onValue(ref(db, `transactions/${userId}`), (snap) => {
+        const val = snap.val() || {};
+        const list = Object.entries(val)
+          .map(([id, v]) => ({ id, ...v }))
+          .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        renderOperations(list);
+      });
+    }
+
+    /* ========== Поиск ========== */
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderContactList();
+    });
+
+    /* ========== Выбор получателя ========== */
+    contactListEl.addEventListener('click', (e) => {
+      const item = e.target.closest('.contact-item');
+      if (!item) return;
+      selectedRecipientId = item.dataset.id;
+      document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+
+    /* ========== Панели ========== */
+    const topupPanel = document.getElementById('topupPanel');
+    const transferPanel = document.getElementById('transferPanel');
+
+    btnTopup.addEventListener('click', () => {
+      topupPanel.classList.toggle('active');
+      if (topupPanel.classList.contains('active')) transferPanel.classList.remove('active');
+    });
+    btnTransfer.addEventListener('click', () => {
+      transferPanel.classList.toggle('active');
+      if (transferPanel.classList.contains('active')) topupPanel.classList.remove('active');
+    });
+
+    /* ========== Пополнение ========== */
+    document.getElementById('btnTopupConfirm').addEventListener('click', async (e) => {
+      const input = document.getElementById('topupInput');
+      const amount = Math.floor(Number(input.value));
+      if (!amount || amount <= 0) { showToast('Введите сумму', 'error'); return; }
+
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await runTransaction(ref(db, `users/${userId}/balance`), (cur) => (cur || 0) + amount);
+        await push(ref(db, `transactions/${userId}`), {
+          type: 'in', amount, title: 'Пополнение', ts: Date.now()
+        });
+        input.value = '';
+        topupPanel.classList.remove('active');
+        showToast(`+${amount} TONE зачислено`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Ошибка пополнения', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* ========== Перевод ========== */
+    document.getElementById('btnTransferConfirm').addEventListener('click', async (e) => {
+      const input = document.getElementById('transferInput');
+      const amount = Math.floor(Number(input.value));
+
+      if (!selectedRecipientId) { showToast('Выберите получателя', 'error'); return; }
+      if (!amount || amount <= 0) { showToast('Введите сумму', 'error'); return; }
+      if (selectedRecipientId === userId) { showToast('Нельзя перевести себе', 'error'); return; }
+
+      const recipient = allUsers[selectedRecipientId];
+      if (!recipient || !recipient.createdAt) { showToast('Получатель не найден', 'error'); return; }
+
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const res = await runTransaction(ref(db, `users/${userId}/balance`), (cur) => {
+          if ((cur || 0) < amount) return;
+          return cur - amount;
+        });
+        if (!res.committed) { showToast('Недостаточно средств', 'error'); return; }
+
+        await runTransaction(ref(db, `users/${selectedRecipientId}/balance`), (cur) => (cur || 0) + amount);
+
+        const senderName = displayName(allUsers[userId] || currentUser);
+        const recipientName = displayName(recipient);
+        const ts = Date.now();
+        const senderTxRef = push(ref(db, `transactions/${userId}`));
+        const recipientTxRef = push(ref(db, `transactions/${selectedRecipientId}`));
+
+        await update(ref(db), {
+          [`transactions/${userId}/${senderTxRef.key}`]: {
+            type: 'out', amount, title: `Перевод: ${recipientName}`,
+            to: selectedRecipientId, ts
+          },
+          [`transactions/${selectedRecipientId}/${recipientTxRef.key}`]: {
+            type: 'in', amount, title: `Перевод от: ${senderName}`,
+            from: userId, ts
+          }
+        });
+
+        input.value = '';
+        selectedRecipientId = null;
+        searchQuery = '';
+        searchInput.value = '';
+        document.querySelectorAll('.contact-item').forEach(el => el.classList.remove('selected'));
+        transferPanel.classList.remove('active');
+        showToast(`Переведено ${amount} TONE`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Ошибка перевода', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* ========== Тема ========== */
+    if (tg) {
+      document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+      document.body.style.color = tg.themeParams.text_color || '#000000';
+    }
+
+    /* ========== Старт ========== */
+    (async function init() {
+      try {
+        await cleanupLegacyDemos();
+        await syncTelegramProfile();
+        lastSync = Date.now();
+        listenUsers();
+        listenTransactions();
+      } catch (err) {
+        console.error(err);
+        showToast('Не удалось подключиться к базе', 'error');
+      }
+    })();
+  </script>
+</body>
+</html>
