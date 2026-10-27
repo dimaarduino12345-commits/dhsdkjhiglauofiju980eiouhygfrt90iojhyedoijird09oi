@@ -16,7 +16,6 @@
       --accent: #33b8ec;
       --green: #34c759;
       --red: #ff3b30;
-      /* Переменная высоты, которую устанавливает Telegram */
       --app-height: 100vh;
     }
 
@@ -32,8 +31,8 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: 16px;
-      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      /* СДВИГ: сверху 80px, снизу 100px + безопасная зона */
+      padding: 80px 16px calc(100px + env(safe-area-inset-bottom, 0px)) 16px;
       width: 100%;
       max-width: 100vw;
       overflow-x: hidden;
@@ -46,7 +45,7 @@
     /* Профиль */
     .profile-card {
       display: flex; align-items: center; gap: 14px;
-      padding: 14px; background: var(--secondary-bg);
+      padding: 16px; background: var(--secondary-bg);
       border-radius: 16px; margin-bottom: 16px;
       width: 100%; min-width: 0;
     }
@@ -64,25 +63,29 @@
     /* Баланс */
     .balance-card {
       display: flex; align-items: center; gap: 14px;
-      padding: 18px; background: var(--secondary-bg);
+      padding: 20px; background: var(--secondary-bg);
       border-radius: 16px; margin-bottom: 16px;
       width: 100%; min-width: 0;
     }
     .tone-img {
-      width: 52px; height: 52px; border-radius: 50%;
+      width: 56px; height: 56px; border-radius: 50%;
       object-fit: cover; flex-shrink: 0;
       box-shadow: 0 4px 12px rgba(51, 184, 236, 0.3);
     }
     .balance-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-    .balance-amount { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .balance-amount { 
+      font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; 
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+      font-variant-numeric: tabular-nums;
+    }
     .balance-label { font-size: 12px; color: var(--hint); font-weight: 500; margin-top: 4px; letter-spacing: 1px; }
 
     /* Кнопки */
-    .actions-row { display: flex; gap: 10px; margin-bottom: 18px; width: 100%; }
+    .actions-row { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; }
     .btn {
-      flex: 1; min-width: 0; /* Критично: позволяет кнопкам сжиматься */
-      border: none; border-radius: 12px;
-      padding: 14px 12px; font-size: 15px; font-weight: 600;
+      flex: 1; min-width: 0;
+      border: none; border-radius: 14px;
+      padding: 15px 12px; font-size: 15px; font-weight: 600;
       cursor: pointer; transition: opacity 0.2s; font-family: inherit;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
@@ -100,14 +103,14 @@
     /* Панели */
     .panel {
       background: var(--secondary-bg); border-radius: 16px;
-      padding: 16px; margin-bottom: 16px; display: none;
+      padding: 16px; margin-bottom: 20px; display: none;
       width: 100%; min-width: 0;
     }
     .panel.active { display: block; animation: slideDown 0.25s ease; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
     .panel-title {
       font-size: 14px; font-weight: 600; color: var(--hint);
-      margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
       display: flex; justify-content: space-between; align-items: center;
       min-width: 0; gap: 8px;
     }
@@ -119,13 +122,13 @@
     }
     .input-row {
       display: flex; align-items: center; gap: 12px;
-      background: var(--bg); border-radius: 12px; padding: 8px 12px;
-      margin-bottom: 12px; width: 100%; min-width: 0;
+      background: var(--bg); border-radius: 14px; padding: 10px 14px;
+      margin-bottom: 14px; width: 100%; min-width: 0;
     }
     .input-row .tone-img { width: 40px; height: 40px; box-shadow: none; }
     .input-row input {
       flex: 1; border: none; outline: none; background: transparent;
-      font-size: 22px; font-weight: 700; color: var(--text);
+      font-size: 24px; font-weight: 700; color: var(--text);
       font-family: inherit; min-width: 0; width: 100%;
     }
     .input-row input::placeholder { color: var(--hint); font-weight: 400; }
@@ -134,21 +137,21 @@
 
     /* Поиск и список контактов */
     .search-input {
-      width: 100%; padding: 10px 14px; border-radius: 10px;
+      width: 100%; padding: 12px 14px; border-radius: 12px;
       border: 1px solid transparent; background: var(--bg);
       color: var(--text); font-size: 14px; font-family: inherit;
-      outline: none; margin-bottom: 10px; min-width: 0;
+      outline: none; margin-bottom: 12px; min-width: 0;
     }
     .search-input:focus { border-color: var(--accent); }
 
     .contact-list {
       display: flex; flex-direction: column; gap: 8px;
-      margin-bottom: 12px; max-height: 280px; overflow-y: auto;
+      margin-bottom: 14px; max-height: 280px; overflow-y: auto;
       width: 100%; min-width: 0;
     }
     .contact-item {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; background: var(--bg);
+      padding: 12px; background: var(--bg);
       border-radius: 12px; cursor: pointer;
       border: 1.5px solid transparent;
       transition: border-color 0.2s, background 0.2s;
@@ -171,7 +174,7 @@
     /* История операций */
     .operations-title {
       font-size: 14px; font-weight: 600; color: var(--hint);
-      margin: 8px 0 10px; text-transform: uppercase; letter-spacing: 0.5px;
+      margin: 12px 0 10px; text-transform: uppercase; letter-spacing: 0.5px;
     }
     .op-list { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
     .op-item {
@@ -196,10 +199,10 @@
 
     /* Уведомления */
     .toast {
-      position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      position: fixed; bottom: calc(32px + env(safe-area-inset-bottom, 0px));
       left: 50%; transform: translateX(-50%) translateY(120%);
       background: rgba(0, 0, 0, 0.85); color: #fff;
-      padding: 12px 20px; border-radius: 12px;
+      padding: 14px 20px; border-radius: 12px;
       font-size: 14px; font-weight: 500;
       transition: transform 0.3s ease; z-index: 10000;
       max-width: 90%; text-align: center;
@@ -225,7 +228,7 @@
   <div class="balance-card">
     <img class="tone-img" src="https://fs.oblakoteka.ru/d.fotovssylku.ru/2026/10/27/image42474d89238e13c03.png" alt="TONE" />
     <div class="balance-info">
-      <div class="balance-amount" id="balanceAmount">...</div>
+      <div class="balance-amount" id="balanceAmount">0</div>
       <div class="balance-label">TONE</div>
     </div>
   </div>
@@ -378,7 +381,6 @@
     }
 
     /* ========== Высота вьюпорта ========== */
-    // Telegram присылает точную высоту вьюпорта, решаем проблему растягивания
     function setAppHeight() {
       const tg = window.Telegram?.WebApp;
       if (tg && tg.viewportStableHeight) {
@@ -695,7 +697,6 @@
           tg.onEvent('viewportChanged', setAppHeight);
         }
 
-        // Применяем тему
         if (tg.themeParams) {
           document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
           document.body.style.color = tg.themeParams.text_color || '#000000';
@@ -712,7 +713,7 @@
         await waitForTgUser();
         updateUserState();
         renderProfile();
-        setAppHeight(); // еще раз после expand()
+        setAppHeight();
 
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
